@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Hardware Audio-Sync Media Center</title>
+    <style>
+        body {
+            background-color: #1e1e2e;
+            color: #cdd6f4;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+        .player-container {
+            background: #11111b;
+            padding: 24px;
+            border-radius: 16px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+            max-width: 950px;
+            width: 92%;
+        }
+        .display-wrapper {
+            position: relative;
+            width: 100%;
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        video {
+            width: 100%;
+            display: block;
+            max-height: 70vh;
+        }
+        .controls-row {
+            margin-top: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #313244;
+            padding: 15px 25px;
+            border-radius: 10px;
+        }
+        .dropdown-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        select {
+            background: #11111b;
+            color: #cdd6f4;
+            border: 1px solid #45475a;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.95em;
+            cursor: pointer;
+            outline: none;
+        }
+        select:focus {
+            border-color: #89b4fa;
+        }
+        label {
+            font-weight: bold;
+            color: #89b4fa;
+        }
+        .status-msg {
+            font-size: 0.9em;
+            color: #a6adc8;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+
+<div class="player-container">
+    <h2 style="margin-top:0; color:#89b4fa; text-align:center; letter-spacing: 0.5px;">🎬 Web Audio API Control Studio</h2>
+    
+    <div class="display-wrapper">
+        <video id="mainVideo" controls crossorigin="anonymous">
+            <source src="https://archive.org/download/one-piece-film-red_202607/One%20Piece%20Film%20Red.mp4" type="video/mp4">
+            <track src='https://archive.org/download/one-piece-film-red_202607/eng_0.vtt' kind='subtitles' srclang='eng' label='ENG' default>
+<track src='eng_1.vtt' kind='subtitles' srclang='eng' label='ENG' >
+
+        </video>
+    </div>
+
+    <audio id="externalAudio" crossorigin="anonymous"></audio>
+
+    <div class="controls-row">
+        <div class="dropdown-group">
+            <label for="audioSelect">🔊 Audio Channel: </label>
+            <select id="audioSelect" onchange="changeAudioTrack()">
+                <option value='https://archive.org/download/one-piece-film-red_202607/One%20Piece%20Film%20Red.Eng.mp3' selected>ENG (eng_0.mp3)</option>
+<option value='https://archive.org/download/one-piece-film-red_202607/jpn_1.mp3' >JPN (jpn_1.mp3)</option>
+
+            </select>
+        </div>
+        <div class="status-msg" id="syncStatus">
+            Ready to stream. Click video to initiate hardware sync matrix.
+        </div>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('mainVideo');
+    const audio = document.getElementById('externalAudio');
+    const audioSelect = document.getElementById('audioSelect');
+    const syncStatus = document.getElementById('syncStatus');
+
+    let audioCtx = null;
+    let sourceVid = null;
+    let sourceAud = null;
+
+    // Load initial selection path
+    audio.src = audioSelect.value;
+
+    function initAudioContext() {
+        if (audioCtx) return; // Already initialized
+
+        try {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContextClass();
+
+            // Create media routing hooks inside the engine matrix
+            sourceVid = audioCtx.createMediaElementSource(video);
+            sourceAud = audioCtx.createMediaElementSource(audio);
+
+            # Connect both stream nodes straight to system audio device (hardware)
+            sourceVid.connect(audioCtx.destination);
+            sourceAud.connect(audioCtx.destination);
+
+            syncStatus.innerText = "🚀 Hardware routing engine locked and active.";
+            syncStatus.style.color = "#a6e3a1";
+        } catch(e) {
+            syncStatus.innerText = "⚠️ Web Audio block encountered: " + e.message;
+            syncStatus.style.color = "#f38ba8";
+        }
+    }
+
+    // Lock play / pause commands and initialize hardware pipeline on first user interaction
+    video.addEventListener('play', () => {
+        initAudioContext();
+        if (audioCtx && audioCtx.state === 'suspended') {
+            audioCtx.resume();
+        }
+        audio.currentTime = video.currentTime;
+        audio.play();
+    });
+
+    video.addEventListener('pause', () => {
+        audio.pause();
+    });
+
+    // Frame level timeline seeking synchronization anchors
+    video.addEventListener('seeking', () => {
+        audio.currentTime = video.currentTime;
+    });
+    video.addEventListener('seeked', () => {
+        audio.currentTime = video.currentTime;
+    });
+
+    // Handle track hot swapping safely
+    function changeAudioTrack() {
+        const wasPlaying = !video.paused;
+        audio.pause();
+        audio.src = audioSelect.value;
+        audio.currentTime = video.currentTime;
+        
+        if (wasPlaying) {
+            initAudioContext();
+            audio.play();
+        }
+    }
+
+    // Real-time micro-drift correction engine (Runs every 200ms)
+    setInterval(() => {
+        if (!video.paused && audioCtx) {
+            const drift = Math.abs(video.currentTime - audio.currentTime);
+            // If tracks drift by more than 100 milliseconds, force snap alignment
+            if (drift > 0.1) {
+                audio.currentTime = video.currentTime;
+            }
+        }
+    }, 200);
+</script>
+
+</body>
+</html>
