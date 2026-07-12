@@ -81,8 +81,7 @@
         <video id="mainVideo" controls crossorigin="anonymous">
             <source src="https://archive.org/download/one-piece-film-red_202607/One%20Piece%20Film%20Red.mp4" type="video/mp4">
             <track src='https://archive.org/download/one-piece-film-red_202607/eng_0.vtt' kind='subtitles' srclang='eng' label='ENG' default>
-<track src='eng_1.vtt' kind='subtitles' srclang='eng' label='ENG' >
-
+            <track src='eng_1.vtt' kind='subtitles' srclang='eng' label='ENG' >
         </video>
     </div>
 
@@ -93,8 +92,7 @@
             <label for="audioSelect">🔊 Audio Channel: </label>
             <select id="audioSelect" onchange="changeAudioTrack()">
                 <option value='https://archive.org/download/one-piece-film-red_202607/One%20Piece%20Film%20Red.Eng.mp3' selected>ENG (eng_0.mp3)</option>
-<option value='https://archive.org/download/one-piece-film-red_202607/jpn_1.mp3' >JPN (jpn_1.mp3)</option>
-
+                <option value='https://archive.org/download/one-piece-film-red_202607/jpn_1.mp3' >JPN (jpn_1.mp3)</option>
             </select>
         </div>
         <div class="status-msg" id="syncStatus">
@@ -113,8 +111,14 @@
     let sourceVid = null;
     let sourceAud = null;
 
-    // Load initial selection path
-    audio.src = audioSelect.value;
+    // Helper to bypass browser cache and force a clean CORS request context header
+    function getCorsSafeUrl(url) {
+        const cacheBuster = "cors_fix=" + new Date().getTime();
+        return url.indexOf('?') > -1 ? `${url}&${cacheBuster}` : `${url}?${cacheBuster}`;
+    }
+
+    // Load initial selection path with cache bust parameter mapping
+    audio.src = getCorsSafeUrl(audioSelect.value);
 
     function initAudioContext() {
         if (audioCtx) return; // Already initialized
@@ -127,7 +131,7 @@
             sourceVid = audioCtx.createMediaElementSource(video);
             sourceAud = audioCtx.createMediaElementSource(audio);
 
-            # Connect both stream nodes straight to system audio device (hardware)
+            // Corrected comment formatting: Connect both streams straight to system audio device hardware
             sourceVid.connect(audioCtx.destination);
             sourceAud.connect(audioCtx.destination);
 
@@ -165,7 +169,7 @@
     function changeAudioTrack() {
         const wasPlaying = !video.paused;
         audio.pause();
-        audio.src = audioSelect.value;
+        audio.src = getCorsSafeUrl(audioSelect.value);
         audio.currentTime = video.currentTime;
         
         if (wasPlaying) {
